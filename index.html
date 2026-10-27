@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedStock & Billing</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 10px; background: #f4f4f9; }
+        .card { background: white; padding: 15px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        input, button { width: 100%; padding: 10px; margin: 5px 0; box-sizing: border-box; }
+        button { background: #007bff; color: white; border: none; border-radius: 4px; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        .danger { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h2>Medical Store POS</h2>
+
+    <!-- Add New Medicine -->
+    <div class="card">
+        <h3>Add Medicine to Stock</h3>
+        <input type="text" id="medName" placeholder="Medicine Name">
+        <input type="text" id="medBatch" placeholder="Batch Number">
+        <input type="date" id="medExpiry" placeholder="Expiry Date">
+        <input type="number" id="medPrice" placeholder="Price (₹)">
+        <input type="number" id="medQty" placeholder="Quantity">
+        <button onclick="addMedicine()">Add to Inventory</button>
+    </div>
+
+    <!-- Billing Section -->
+    <div class="card">
+        <h3>Billing</h3>
+        <select id="billMedSelect" style="width: 100%; padding: 10px; margin: 5px 0;"></select>
+        <input type="number" id="billQty" placeholder="Quantity to Sell">
+        <button onclick="addToCart()">Add to Bill</button>
+        
+        <h4>Current Bill</h4>
+        <ul id="cartList"></ul>
+        <h3 id="totalAmt">Total: ₹0</h3>
+        <button onclick="checkout()" style="background: #28a745;">Checkout & Print</button>
+    </div>
+
+    <!-- Inventory Display -->
+    <div class="card">
+        <h3>Current Inventory</h3>
+        <table id="inventoryTable">
+            <tr>
+                <th>Name</th>
+                <th>Stock</th>
+                <th>Price</th>
+                <th>Expiry</th>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-firestore.js";
+
+        // INSERT YOUR FIREBASE CONFIG HERE
+        const firebaseConfig = {
+        
+       apiKey: "AIzaSyBnHRJzarqkSxpttq-aMCBMg0GCjrK0p3w",
+  authDomain: "jai-ambe-medical-store.firebaseapp.com",
+  projectId: "jai-ambe-medical-store",
+  storageBucket: "jai-ambe-medical-store.firebasestorage.app",
+  messagingSenderId: "239545123794",
+  appId: "1:239545123794:web:e69cfc966589a6b1273e0b",
+  measurementId: "G-EHRDD4XKJD"
+};
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let inventory = [];
+        let cart = [];
+        let cartTotal = 0;
+
+        // Add Medicine to Firestore
+        window.addMedicine = async function() {
+            const name = document.getElementById('medName').value;
+            const batch = document.getElementById('medBatch').value;
+            const expiry = document.getElementById('medExpiry').value;
+            const price = parseFloat(document.getElementById('medPrice').value);
+            const stock = parseInt(document.getElementById('medQty').value);
+
+            await addDoc(collection(db, "inventory"), { name, batch, expiry, price, stock });
+            alert("Medicine Added!");
+            loadInventory();
+        }
+
+        // Load Inventory from Firestore
+        async function loadInventory() {
+            const querySnapshot = await getDocs(collection(db, "inventory"));
+            const table = document.getElementById('inventoryTable');
+            const select = document.getElementById('billMedSelect');
+            
+            table.innerHTML = "<tr><th>Name</th><th>Stock</th><th>Price</th><th>Expiry</th></tr>";
+            select.innerHTML = "<option value=''>Select Medicine</option>";
+            inventory = [];
+
+            querySnapshot.forEach((doc) => {
+                let med = doc.data();
+                med.id = doc.id;
+                inventory.push(med);
+
+                // Add to Table
+                table.innerHTML += `<tr>
+                    <td>${med.name} <br><small>${med.batch}</small></td>
+                    <td class="${med.stock < 10 ? 'danger' : ''}">${med.stock}</td>
+                    <td>₹${med.price}</td>
+                    <td>${med.expiry}</td>
+                </tr>`;
+
+                // Add to Dropdown
+                if(med.stock > 0) {
+                    select.innerHTML += `<option value='${med.id}'>${med.name} (₹${med.price}) - Stock: ${med.stock}</option>`;
+                }
+            });
+        }
+
+        // Add to Cart
+        window.addToCart = function() {
+            const medId = document.getElementById('billMedSelect').value;
+            const qty = parseInt(document.getElementById('billQty').value);
+            const med = inventory.find(m => m.id === medId);
+
+            if(!med || qty > med.stock) {
+                alert("Invalid quantity or insufficient stock!");
+                return;
+            }
+
+            cart.push({ ...med, sellQty: qty });
+            cartTotal += (med.price * qty);
+            
+            document.getElementById('cartList').innerHTML += `<li>${med.name} x ${qty} = ₹${med.price * qty}</li>`;
+            document.getElementById('totalAmt').innerText = `Total: ₹${cartTotal}`;
+        }
+
+        // Checkout & Deduct Stock
+        window.checkout = async function() {
+            if(cart.length === 0) return alert("Cart is empty");
+
+            for (let item of cart) {
+                const medRef = doc(db, "inventory", item.id);
+                await updateDoc(medRef, { stock: item.stock - item.sellQty });
+            }
+
+            // Save Invoice
+            await addDoc(collection(db, "invoices"), { 
+                items: cart, 
+                total: cartTotal, 
+                date: new Date().toISOString() 
+            });
+
+            alert("Bill Generated Successfully!");
+            cart = [];
+            cartTotal = 0;
+            document.getElementById('cartList').innerHTML = "";
+            document.getElementById('totalAmt').innerText = "Total: ₹0";
+            loadInventory();
+        }
+
+        // Initialize
+        loadInventory();
+    </script>
+</body>
+</html>
