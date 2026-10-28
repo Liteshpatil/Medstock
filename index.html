@@ -57,23 +57,23 @@
 
     <!-- Firebase SDKs -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-firestore.js";
+        // Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
 
-        // INSERT YOUR FIREBASE CONFIG HERE
-        const firebaseConfig = {
-        
-       apiKey: "AIzaSyBnHRJzarqkSxpttq-aMCBMg0GCjrK0p3w",
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyBnHRJzarqkSxpttq-aMCBMg0GCjrK0p3w",
   authDomain: "jai-ambe-medical-store.firebaseapp.com",
   projectId: "jai-ambe-medical-store",
   storageBucket: "jai-ambe-medical-store.firebasestorage.app",
   messagingSenderId: "239545123794",
-  appId: "1:239545123794:web:e69cfc966589a6b1273e0b",
-  measurementId: "G-EHRDD4XKJD"
+  appId: "1:239545123794:web:0466183217180a27273e0b",
+  measurementId: "G-NJP91CF3H1"
 };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
 
         let inventory = [];
         let cart = [];
